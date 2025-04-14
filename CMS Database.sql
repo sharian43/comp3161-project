@@ -15,9 +15,19 @@ CREATE TABLE Account(
     accountID SERIAL PRIMARY KEY,
     acc_name VARCHAR(100) UNIQUE NOT NULL,
     acc_contact_info VARCHAR(255),
+    accRole VARCHAR(20) CHECK (userRole IN ('ADMIN', 'LECTURER', 'STUDENT')) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, 
     created_by INT NOT NULL,
-    FOREIGN KEY (created_by) REFERENCES User(userID)
+    FOREIGN KEY (created_by) REFERENCES User(userID),
+    FOREIGN KEY (accRole) REFERENCES User(userRole)
+);
+
+--LOGIN Table (tracks the period they were logged in for)
+CREATE TABLE Login(
+    sessionID SERIAL PRIMARY KEY,
+    userID INT NOT NULL,
+    session_period TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (userID) REFERENCES User(userID)
 );
 
 --ADMIN Table (subtype of USER)
