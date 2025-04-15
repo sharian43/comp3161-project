@@ -2,25 +2,27 @@ CREATE DATABASE cms;
 
 USE cms;
 
---USER Table
-CREATE TABLE User (
-    userID SERIAL PRIMARY KEY,
-    username VARCHAR(100) UNIQUE NOT NULL,
-    userPassword VARCHAR(255) NOT NULL,
-    userRole VARCHAR(20) CHECK (userRole IN ('ADMIN', 'LECTURER', 'STUDENT')) NOT NULL
-);
-
 --ACCOUNT Table
 CREATE TABLE Account(
     accountID SERIAL PRIMARY KEY,
     acc_name VARCHAR(100) UNIQUE NOT NULL,
     acc_contact_info VARCHAR(255),
-    accRole VARCHAR(20) CHECK (userRole IN ('ADMIN', 'LECTURER', 'STUDENT')) NOT NULL,
+    accRole VARCHAR(20) CHECK (accRole IN ('ADMIN', 'LECTURER', 'STUDENT')) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, 
-    created_by INT NOT NULL,
-    FOREIGN KEY (created_by) REFERENCES User(userID),
-    FOREIGN KEY (accRole) REFERENCES User(userRole)
+    --build contraints for admin only to create account at application level.
 );
+
+
+--USER Table
+CREATE TABLE User (
+    userID SERIAL PRIMARY KEY,
+    accountID INT UNIQUE NOT NULL,
+    username VARCHAR(100) UNIQUE NOT NULL,
+    userPassword VARCHAR(255) NOT NULL,
+    FOREIGN KEY(accountID) REFERENCES Account(accountID)
+);
+
+
 
 --LOGIN Table (tracks the period they were logged in for)
 CREATE TABLE Login(
@@ -30,36 +32,36 @@ CREATE TABLE Login(
     FOREIGN KEY (userID) REFERENCES User(userID)
 );
 
---ADMIN Table (subtype of USER)
+--ADMIN Table (subtype of ACCOUNT)
 CREATE TABLE Admin(
     adminID SERIAL PRIMARY KEY,
-    userID INT NOT NULL UNIQUE,
+    accountID INT NOT NULL UNIQUE,
     firstName VARCHAR(255),
     lastName VARCHAR(255),
-    FOREIGN KEY (userID) REFERENCES User(userID)
+    FOREIGN KEY (accountID) REFERENCES Account(accountID)
 );
 
---STUDENT Table (subtype of USER)
+--STUDENT Table (subtype of ACCOUNT)
 CREATE TABLE Student(
     studentID SERIAL PRIMARY KEY,
-    userID INT NOT NULL,
+    accountID INT NOT NULL,
     firstName VARCHAR (255),
     lastName VARCHAR(255),
     department VARCHAR(255),
     gpa DECIMAL(3,2),
     CHECK (gpa >= 0.00 AND gpa <= 4.00), --constraint to enforce valid GPA range
-    FOREIGN KEY (userID) REFERENCES User (userID)
+    FOREIGN KEY (accountID) REFERENCES Account(accountID)
 );
 
---LECTURER Table (subtype of USER)
+--LECTURER Table (subtype of ACCOUNT)
 CREATE TABLE Lecturer(
     lecturerID SERIAL PRIMARY KEY,
-    userID INT NOT NULL UNIQUE,
+    accountID INT NOT NULL UNIQUE,
     firstName VARCHAR (255),
     lastName VARCHAR(255),
     department VARCHAR(255),
     schedule VARCHAR(255),
-    FOREIGN KEY (userID) REFERENCES User(userID)
+    FOREIGN KEY (accountID) REFERENCES Account(accountID)
 );
 
 --COURSE Table
@@ -67,8 +69,8 @@ CREATE TABLE Course (
     courseID SERIAL PRIMARY KEY,
     course_name VARCHAR(255) NOT NULL,
     course_code VARCHAR(50) UNIQUE NOT NULL, 
-    lecturerID INT UNIQUE,
-    created_by INT NOT NULL, -- aid with contraint on application level to ensure that the acc was made by an admin
+    lecturerID INT NOT NULL,
+    created_by INT NOT NULL, -- enforce via application logic: only Admin-created accounts can assign courses.
     FOREIGN KEY (lecturerID) REFERENCES Lecturer(lecturerID),
     FOREIGN KEY (created_by) REFERENCES Admin(adminID)
 );
