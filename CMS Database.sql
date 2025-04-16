@@ -16,7 +16,7 @@ CREATE TABLE Account(
 --USER Table
 CREATE TABLE User (
     userID SERIAL PRIMARY KEY,
-    accountID INT UNIQUE NOT NULL,
+    accountID BIGINT UNSIGNED UNIQUE NOT NULL,,
     username VARCHAR(100) UNIQUE NOT NULL,
     userPassword VARCHAR(255) NOT NULL,
     FOREIGN KEY(accountID) REFERENCES Account(accountID)
@@ -27,7 +27,7 @@ CREATE TABLE User (
 --LOGIN Table (tracks the period they were logged in for)
 CREATE TABLE Login(
     sessionID SERIAL PRIMARY KEY,
-    userID INT NOT NULL,
+    userID BIGINT UNSIGNED UNIQUE NOT NULL,,
     session_period TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (userID) REFERENCES User(userID)
 );
@@ -35,7 +35,7 @@ CREATE TABLE Login(
 --ADMIN Table (subtype of ACCOUNT)
 CREATE TABLE Admin(
     adminID SERIAL PRIMARY KEY,
-    accountID INT NOT NULL UNIQUE,
+    accountID BIGINT UNSIGNED UNIQUE NOT NULL,,
     firstName VARCHAR(255),
     lastName VARCHAR(255),
     FOREIGN KEY (accountID) REFERENCES Account(accountID)
@@ -44,7 +44,7 @@ CREATE TABLE Admin(
 --STUDENT Table (subtype of ACCOUNT)
 CREATE TABLE Student(
     studentID SERIAL PRIMARY KEY,
-    accountID INT NOT NULL,
+    accountID BIGINT UNSIGNED UNIQUE NOT NULL,,
     firstName VARCHAR (255),
     lastName VARCHAR(255),
     department VARCHAR(255),
@@ -56,7 +56,7 @@ CREATE TABLE Student(
 --LECTURER Table (subtype of ACCOUNT)
 CREATE TABLE Lecturer(
     lecturerID SERIAL PRIMARY KEY,
-    accountID INT NOT NULL UNIQUE,
+    accountID BIGINT UNSIGNED UNIQUE NOT NULL,,
     firstName VARCHAR (255),
     lastName VARCHAR(255),
     department VARCHAR(255),
@@ -69,8 +69,8 @@ CREATE TABLE Course (
     courseID SERIAL PRIMARY KEY,
     course_name VARCHAR(255) NOT NULL,
     course_code VARCHAR(50) UNIQUE NOT NULL, 
-    lecturerID INT NOT NULL,
-    created_by INT NOT NULL, -- enforce via application logic: only Admin-created accounts can assign courses.
+    lecturerID BIGINT UNSIGNED  NOT NULL,,
+    created_by BIGINT UNSIGNED  NOT NULL,, -- enforce via application logic: only Admin-created accounts can assign courses.
     FOREIGN KEY (lecturerID) REFERENCES Lecturer(lecturerID),
     FOREIGN KEY (created_by) REFERENCES Admin(adminID)
 );
@@ -79,7 +79,7 @@ CREATE TABLE Course (
 --CALENDER EVENT Table
 CREATE TABLE CalendarEvent(
     eventID SERIAL PRIMARY KEY,
-    courseID INT NOT NULL,
+    courseID BIGINT UNSIGNED UNIQUE NOT NULL,,
     title VARCHAR(255),
     description TEXT,
     event_date DATE,
@@ -89,7 +89,7 @@ CREATE TABLE CalendarEvent(
 --SECTIONS Table
 CREATE TABLE Section(
     sectionID SERIAL PRIMARY KEY,
-    courseID INT NOT NULL,
+    courseID BIGINT UNSIGNED UNIQUE NOT NULL,,
     section_name VARCHAR(255) NOT NULL,
     FOREIGN KEY (courseID) REFERENCES Course(courseID)
 );
@@ -97,7 +97,7 @@ CREATE TABLE Section(
 --SECTION ITEM Table
 CREATE TABLE SectionItem(
     itemID SERIAL PRIMARY KEY,
-    sectionID INT NOT NULL,
+    sectionID BIGINT UNSIGNED UNIQUE NOT NULL,,
     item_type VARCHAR(50) CHECK (item_type IN ('LECTURE_SLIDE', 'ASSIGNMENT')) NOT NULL,
     FOREIGN KEY (sectionID) REFERENCES Section(sectionID)
 );
@@ -105,7 +105,7 @@ CREATE TABLE SectionItem(
 --LECTURE SLIDES Table (subtype of SECTION ITEM)
 CREATE TABLE LectureSlide(
     slideID SERIAL PRIMARY KEY,
-    itemID INT NOT NULL UNIQUE,
+    itemID BIGINT UNSIGNED UNIQUE NOT NULL,,
     slide_name VARCHAR(255) NOT NULL,
     FOREIGN KEY (itemID) REFERENCES SectionItem(itemID)
 );
@@ -113,10 +113,10 @@ CREATE TABLE LectureSlide(
 --ASSIGNMENT Table (subtype of SECTION ITEM)
 CREATE TABLE Assignment(
     assignmentID SERIAL PRIMARY KEY,
-    itemID INT NOT NULL,
+    itemID BIGINT UNSIGNED UNIQUE NOT NULL,,
     assignmentName VARCHAR(255) NOT NULL,
     assignmentGrade DECIMAL(5,2),
-    studentID INT NOT NULL,
+    studentID BIGINT UNSIGNED UNIQUE NOT NULL,,
     FOREIGN KEY (studentID) REFERENCES Student(studentID),
     FOREIGN KEY (itemID) REFERENCES SectionItem(itemID)
 );
@@ -124,9 +124,9 @@ CREATE TABLE Assignment(
 --DISCUSSION FORUMS Table
 CREATE TABLE DiscussionForum(
     forumID SERIAL PRIMARY KEY,
-    courseID INT NOT NULL,
+    courseID BIGINT UNSIGNED UNIQUE NOT NULL,,
     topic VARCHAR(255) NOT NULL,
-    creator INT NOT NULL,
+    creator BIGINT UNSIGNED UNIQUE NOT NULL,,
     FOREIGN KEY (courseID) REFERENCES Course(courseID),
     FOREIGN KEY (creator) REFERENCES User(userID)
 );
@@ -134,8 +134,8 @@ CREATE TABLE DiscussionForum(
 --DISCUSSION THREADS Table (child of DISCUSSION FORUMS)
 CREATE TABLE DiscussionThread(
     threadID SERIAL PRIMARY KEY,
-    forumID INT NOT NULL,
-    userID INT NOT NULL,
+    forumID BIGINT UNSIGNED UNIQUE NOT NULL,,
+    userID BIGINT UNSIGNED UNIQUE NOT NULL,,
     content TEXT,
     time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     parentThreadID INT, --if NULL it's a top level thread else a reply to another thread
@@ -146,8 +146,8 @@ CREATE TABLE DiscussionThread(
  
 -- STUDENT to COURSE (A student is assigned to a course)
 CREATE TABLE Enrol (
-    studentID INT NOT NULL,
-    courseID INT NOT NULL,
+    studentID BIGINT UNSIGNED UNIQUE NOT NULL,,
+    courseID BIGINT UNSIGNED UNIQUE NOT NULL,,
     PRIMARY KEY (studentID, courseID),
     FOREIGN KEY (studentID) REFERENCES Student(studentID),
     FOREIGN KEY (courseID) REFERENCES Course(courseID)
