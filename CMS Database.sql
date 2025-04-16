@@ -27,7 +27,7 @@ CREATE TABLE Account(
 -- LOGIN Table (tracks the period they were logged in for)
 CREATE TABLE Login(
     sessionID SERIAL PRIMARY KEY,
-    userID BIGINT UNSIGNED UNIQUE NOT NULL,
+    userID BIGINT UNSIGNED NOT NULL,
     session_period TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (userID) REFERENCES User(userID)
 );
@@ -138,7 +138,7 @@ CREATE TABLE DiscussionThread(
     userID BIGINT UNSIGNED UNIQUE NOT NULL,
     content TEXT,
     time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    parentThreadID INT, -- if NULL it's a top level thread else a reply to another thread
+    parentThreadID BIGINT UNSIGNED, -- if NULL it's a top level thread else a reply to another thread
     FOREIGN KEY (forumID) REFERENCES DiscussionForum(forumID),
     FOREIGN KEY (userID) REFERENCES User(userID),
     FOREIGN KEY (parentThreadID) REFERENCES DiscussionThread(threadID) ON DELETE CASCADE -- If a parent thread is deleted, all its replies (children) are also deleted automatically
