@@ -1,10 +1,47 @@
 #still working on it
-
+import re
 from faker import Faker
 import random
-from .insertscripts import write_sql
+from insertscripts import write_sql
 
 fake = Faker()
+
+# Function to parse the course information from the SQL file
+def parse_courses(sql_file_path):
+    courses = []
+    pattern = r"INSERT INTO Course \(courseID, course_code, course_name, lecturerID, created_by\) VALUES \((\d+), '(\w+)', '([^']+)', (\d+), (\d+)\);"
+
+    with open(sql_file_path, 'r') as file:
+        for line in file:
+            match = re.match(pattern, line)
+            if match:
+                course = {
+                    "courseID": int(match.group(1)),
+                    "course_code": match.group(2),
+                    "course_name": match.group(3),
+                    "lecturerID": int(match.group(4)),
+                    "created_by": int(match.group(5))
+                }
+                courses.append(course)
+    return courses
+
+def parse_students(sql_file_path):
+    students = []
+    pattern = r"INSERT INTO Student \(accountID, firstName, lastName, department, gpa\) VALUES \((\d+), '[^']+', '[^']+', '[^']+', [\d.]+\);"
+
+    with open(sql_file_path, 'r') as file:
+        for line in file:
+            match = re.match(pattern, line)
+            if match:
+                students.append({"student_id": int(match.group(1))})
+    return students
+
+# Parse the courses and students from the provided SQL files
+courses = parse_courses("cms_courses.sql")
+students = parse_students("cms_students.sql")
+
+NUM_STUDENTS = len(students)
+NUM_LECTURERS = 100  
 
 def generate_sections(courses):
     sections = []
