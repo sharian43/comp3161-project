@@ -89,7 +89,7 @@ CREATE TABLE CalendarEvent(
 -- SECTIONS Table
 CREATE TABLE Section(
     sectionID SERIAL PRIMARY KEY,
-    courseID BIGINT UNSIGNED UNIQUE NOT NULL,
+    courseID BIGINT UNSIGNED NOT NULL, --removed unique constraint
     section_name VARCHAR(255) NOT NULL,
     FOREIGN KEY (courseID) REFERENCES Course(courseID)
 );
@@ -97,8 +97,8 @@ CREATE TABLE Section(
 -- SECTION ITEM Table
 CREATE TABLE SectionItem(
     itemID SERIAL PRIMARY KEY,
-    sectionID BIGINT UNSIGNED UNIQUE NOT NULL,
-    item_type VARCHAR(50) CHECK (item_type IN ('LECTURE_SLIDE', 'ASSIGNMENT')) NOT NULL,
+    sectionID BIGINT UNSIGNED NOT NULL, -- removed unique constraint
+    item_type VARCHAR(50) CHECK (item_type IN ('LECTURE_SLIDE', 'ASSIGNMENT', 'FILE', 'LINK')) NOT NULL, --added File and Link
     FOREIGN KEY (sectionID) REFERENCES Section(sectionID)
 );
 
@@ -111,22 +111,23 @@ CREATE TABLE LectureSlide(
 );
 
 -- ASSIGNMENT Table (subtype of SECTION ITEM)
+-- Added maxPoints and weight 
+-- Removed assignmentGrade, studentID 
 CREATE TABLE Assignment(
     assignmentID SERIAL PRIMARY KEY,
     itemID BIGINT UNSIGNED UNIQUE NOT NULL,
     assignmentName VARCHAR(255) NOT NULL,
-    assignmentGrade DECIMAL(5,2),
-    studentID BIGINT UNSIGNED UNIQUE NOT NULL,
-    FOREIGN KEY (studentID) REFERENCES Student(studentID),
+    maxPoints DECIMAL(5,2) DEFAULT 100.00,
+    weight DECIMAL(5,2) DEFAULT 1.00,
     FOREIGN KEY (itemID) REFERENCES SectionItem(itemID)
 );
 
 -- DISCUSSION FORUMS Table
 CREATE TABLE DiscussionForum(
     forumID SERIAL PRIMARY KEY,
-    courseID BIGINT UNSIGNED UNIQUE NOT NULL,
+    courseID BIGINT UNSIGNED NOT NULL, -- removed unique constraint
     topic VARCHAR(255) NOT NULL,
-    creator BIGINT UNSIGNED UNIQUE NOT NULL,
+    creator BIGINT UNSIGNED NOT NULL, -- removed unique constraint
     FOREIGN KEY (courseID) REFERENCES Course(courseID),
     FOREIGN KEY (creator) REFERENCES User(userID)
 );
@@ -134,8 +135,9 @@ CREATE TABLE DiscussionForum(
 -- DISCUSSION THREADS Table (child of DISCUSSION FORUMS)
 CREATE TABLE DiscussionThread(
     threadID SERIAL PRIMARY KEY,
-    forumID BIGINT UNSIGNED UNIQUE NOT NULL,
-    userID BIGINT UNSIGNED UNIQUE NOT NULL,
+    forumID BIGINT UNSIGNED NOT NULL, -- removed unique constraint
+    userID BIGINT UNSIGNED NOT NULL, -- removed unique constraint
+    title VARCHAR(255),                -- Added title field
     content TEXT,
     time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     parentThreadID BIGINT UNSIGNED, -- if NULL it's a top level thread else a reply to another thread
@@ -146,10 +148,44 @@ CREATE TABLE DiscussionThread(
  
 -- STUDENT to COURSE (A student is assigned to a course)
 CREATE TABLE Enrol (
-    studentID BIGINT UNSIGNED UNIQUE NOT NULL,
-    courseID BIGINT UNSIGNED UNIQUE NOT NULL,
+    studentID BIGINT UNSIGNED  NOT NULL,--removed unique constraint
+    courseID BIGINT UNSIGNED NOT NULL, --removed unique constraint
     PRIMARY KEY (studentID, courseID),
     FOREIGN KEY (studentID) REFERENCES Student(studentID),
     FOREIGN KEY (courseID) REFERENCES Course(courseID)
 );
 
+-- Added ASSIGNMENT SUBMISSION Table
+CREATE TABLE AssignmentSubmission(
+    submissionID SERIAL PRIMARY KEY,
+    assignmentID BIGINT UNSIGNED NOT NULL,
+    studentID BIGINT UNSIGNED NOT NULL,
+    submissionContent TEXT,
+    submissionDate TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    grade DECIMAL(5,2) NULL,
+    FOREIGN KEY (assignmentID) REFERENCES Assignment(assignmentID),
+    FOREIGN KEY (studentID) REFERENCES Student(studentID),
+    UNIQUE (assignmentID, studentID)
+);
+
+-- Added FILE Table 
+CREATE TABLE File(
+    fileID SERIAL PRIMARY KEY,
+    itemID BIGINT UNSIGNED UNIQUE NOT NULL,
+    file_name VARCHAR(255) NOT NULL,
+    file_path VARCHAR(255) NOT NULL,
+    file_type VARCHAR(50),
+    file_size BIGINT,
+    upload_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (itemID) REFERENCES SectionItem(itemID)
+);
+
+-- Added LINK Table 
+CREATE TABLE Link(
+    linkID SERIAL PRIMARY KEY,
+    itemID BIGINT UNSIGNED UNIQUE NOT NULL,
+    link_title VARCHAR(255) NOT NULL,
+    url VARCHAR(255) NOT NULL,
+    description TEXT,
+    FOREIGN KEY (itemID) REFERENCES SectionItem(itemID)
+);
