@@ -13,7 +13,6 @@ app = Flask(__name__)
 app.secret_key = os.getenv('secret_key')
 
 db = mysql.connector.connect(host='localhost', user=os.getenv('DB_User'), password= os.getenv('DB_Password'), database='cms')
-
 cursor = db.cursor(dictionary=True)
 
 
