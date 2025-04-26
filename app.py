@@ -1,15 +1,16 @@
-from flask import Flask, jsonify, request, redirect, url_for, session
+from flask import Flask, jsonify, request, redirect, url_for, session, flash, render_template
 import mysql.connector
 from mysql.connector import Error
 from werkzeug.security import generate_password_hash, check_password_hash
 from dotenv import load_dotenv
 import os
+import forms
 
 load_dotenv()
 
 
 app = Flask(__name__)
-app.secret_key = os.getenv('secret_key')
+app.secret_key = os.environ.get('SECRET_KEY')
 
 db=mysql.connector.connect(user='dbms', password='finalproject', host='127.0.0.1',database='cms')
 #db = mysql.connector.connect(host='localhost', user=os.getenv('DB_User'), password= os.getenv('DB_Password'), database='cms')
@@ -194,43 +195,55 @@ def register_admin_account():
 
 
 
-@app.route('/login', methods=['POST'])
+@app.route('/login', methods=['GET','POST'])
 def user_login():
-    data = request.form
-    username = data.get('username')
-    userPassword = data.get('userPassword')
+    #A login class to represent and validate our client-side form data.
+    form = forms.LoginForm()
+    print('lol')
 
-    if not all([username, userPassword]):
-        return jsonify({'error': 'Missing login credentials'}), 400
+    #Login and validate the user.
+    if form.validate_on_submit():
+        username = form.username.data
+        userPassword = form.password.data
 
-    try:
 
-        cursor.execute("SELECT * FROM User WHERE username = %s", (username,))
-        user = cursor.fetchone()
 
-        if not user or not check_password_hash(user['userPassword'], userPassword):
-            return jsonify({'error': 'Invalid credentials'}), 401
+     #if not all([username, userPassword]):
+     #   return jsonify({'error': 'Missing login credentials'}), 400
+
+        try:
+
+            cursor.execute("SELECT * FROM User WHERE username = %s", (username,))
+            user = cursor.fetchone()
+
+            if not user or not check_password_hash(user['userPassword'], userPassword):
+                flash('Invalid credentials')
+                return jsonify({'error': 'Invalid credentials'}), 401
+            else:
+                userID = user['userID']
+
+                cursor.execute("SELECT * FROM Account WHERE userID = %s", (userID,))
+                account = cursor.fetchone()
+
+                accRole = account['accRole']
+
+                if accRole not in ['STUDENT', 'LECTURER', 'ADMIN']:
+                    flash('User MUST BE any of the following, an admin, a student or a lecturer')
+                    return jsonify({'error': 'Cannot login'}), 403
+                else:
+
+                    cursor.execute("INSERT INTO Login (userID) VALUES (%s)", (userID,))
+                    db.commit()
+                    
+                    session['userID'] = user['userID']
+                    session['accRole'] = account['accRole']
+                    
+                    print("Successful")
+                    return jsonify({'message': 'Login successful', 'Role': accRole}), 200, redirect(url_for('dashboard'))     
+        except Error as e:
+            return jsonify({'error': str(e)}), 500
         
-        userID = user['userID']
-
-        cursor.execute("SELECT * FROM Account WHERE userID = %s", (userID,))
-        account = cursor.fetchone()
-
-        accRole = account['accRole']
-
-        if accRole not in ['STUDENT', 'LECTURER', 'ADMIN']:
-            return jsonify({'error': 'Cannot login'}), 403
-
-        cursor.execute("INSERT INTO Login (userID) VALUES (%s)", (userID,))
-        db.commit()
-        
-        session['userID'] = user['userID']
-        session['accRole'] = account['accRole']
-
-        return jsonify({'message': 'Login successful', 'Role': accRole}), 200
-
-    except Error as e:
-        return jsonify({'error': str(e)}), 500
+    return render_template('Login.html', form=form)  
 
 
 

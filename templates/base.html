@@ -18,7 +18,7 @@
     <header>
         <nav class="navbar navbar-expand-lg navbar-dark bg-primary fixed-top">
             <div class="container-fluid">
-              <a class="navbar-brand" href="{{ url_for('home') }}">Course Management System</a>
+              <a class="navbar-brand" href="#">Course Management System</a>
               <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
               </button>
@@ -26,10 +26,10 @@
               <div class="collapse navbar-collapse" id="navbarSupportedContent">
                 <ul class="navbar-nav mr-auto">
                   <li class="nav-item">
-                    <a class="nav-link active" href="{{ url_for('Login') }}">Login</a>
+                    <a class="nav-link active" href="Login.html">Login</a>
                   </li>
                   <li class="nav-item">
-                    <a class="nav-link" href="{{ url_for('RegisterUser') }}">Create Account</a>
+                    <a class="nav-link" href="#">Create Account</a>
                   </li>
                 </ul>
               </div>
@@ -38,15 +38,7 @@
     </header>
     <main>
         <div class="container">
-         <!--{% with messages = get_flashed_messages(with_categories=true) %} 
-            {% if messages %} 
-              <ul class="flashes"> 
-              {% for category, message in messages %} 
-              <li class="{{ category }}">{{ message }}</li>
-              {% endfor %}
-               </ul> 
-            {% endif %} 
-          {% endwith %} -->
+      
           {% block main %}{% endblock %}
         </div>
     </main>

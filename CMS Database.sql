@@ -4,7 +4,7 @@ USE cms;
 
 -- USER Table
 CREATE TABLE User (
-    userID SERIAL PRIMARY KEY,
+    userID SERIAL PRIMARY KEY UNIQUE NOT NULL,
     username VARCHAR(100) UNIQUE NOT NULL,
     userPassword VARCHAR(255) NOT NULL
 );
