@@ -1,6 +1,5 @@
 from flask import Flask, jsonify, request, redirect, url_for, session
 import mysql.connector
-import json
 from mysql.connector import Error
 from werkzeug.security import generate_password_hash, check_password_hash
 from dotenv import load_dotenv
@@ -12,13 +11,14 @@ load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.getenv('secret_key')
 
-db = mysql.connector.connect(host='localhost', user=os.getenv('DB_User'), password= os.getenv('DB_Password'), database='cms')
+db=mysql.connector.connect(user='dbms', password='finalproject', host='127.0.0.1',database='cms')
+#db = mysql.connector.connect(host='localhost', user=os.getenv('DB_User'), password= os.getenv('DB_Password'), database='cms')
 cursor = db.cursor(dictionary=True)
 
 
 @app.route('/register/user', methods=['POST'])
 def register_user():
-    data = request.get_json()
+    data = request.form
     username = data.get('username')
     userPassword = data.get('userPassword')
 
@@ -47,7 +47,7 @@ def register_user():
 @app.route('/register/account/student', methods=['POST'])
 def register_student_account():
 
-    data = request.get_json()
+    data = request.form
     username = data.get('username')
     firstName = data.get('firstName')
     lastName = data.get('lastName')
@@ -98,7 +98,7 @@ def register_student_account():
 @app.route('/register/account/lecturer', methods=['POST'])
 def register_lecturer_account():
 
-    data = request.get_json()
+    data = request.form
     username = data.get('username')
     firstName = data.get('firstName')
     lastName = data.get('lastName')
@@ -149,7 +149,7 @@ def register_lecturer_account():
 @app.route('/register/account/admin', methods=['POST'])
 def register_admin_account():
 
-    data = request.get_json()
+    data = request.form
     username = data.get('username')
     firstName = data.get('firstName')
     lastName = data.get('lastName')
@@ -196,7 +196,7 @@ def register_admin_account():
 
 @app.route('/login', methods=['POST'])
 def user_login():
-    data = request.get_json()
+    data = request.form
     username = data.get('username')
     userPassword = data.get('userPassword')
 
@@ -236,7 +236,7 @@ def user_login():
 
 @app.route('/courses/create-course', methods=['POST'])
 def create_course():
-    data = request.get_json()
+    data = request.form
     course_name = data.get('course_name')
     course_code = data.get('course_code')
     lecturerID = data.get('lecturerID')
@@ -281,9 +281,9 @@ def create_course():
         return jsonify({'error': str(e)}), 500
 
 
-@app.route('/courses/retrieve-courses', methods=['POST'])
+@app.route('/courses/retrieve-courses', methods=['GET'])
 def retrieve_courses():
-    data = request.get_json()
+    data = request.form
 
     studentID = data.get('studentID')
     lecturerID = data.get('lecturerID')
@@ -324,7 +324,7 @@ def retrieve_courses():
 
 @app.route('/courses/register', methods=['POST'])
 def register_student_to_course():
-    data = request.get_json()
+    data = request.form
     studentID = data.get('studentID')
     courseID = data.get('courseID')
 
@@ -356,7 +356,7 @@ def register_student_to_course():
    
 @app.route('/courses/members', methods=['POST'])
 def get_course_members():
-    data = request.get_json()
+    data = request.form
     courseID = data.get('courseID')
 
     if not courseID:
@@ -392,7 +392,7 @@ def get_course_members():
 
 @app.route('/courses/calendar-events/retrieve', methods=['POST'])
 def retrieve_calendar_events():
-    data = request.get_json()
+    data = request.form
     courseID = data.get('courseID')
     studentID = data.get('studentID')
     event_date = data.get('event_date')  # format: YYYY-MM-DD
@@ -424,7 +424,7 @@ def retrieve_calendar_events():
 
 @app.route('/courses/calendar-events/create', methods=['POST'])
 def create_calendar_event():
-    data = request.get_json()
+    data = request.form
     courseID = data.get('courseID')
     title = data.get('title')
     description = data.get('description')
@@ -452,7 +452,7 @@ def create_calendar_event():
 
 @app.route('/forums/retrieve', methods=['POST'])
 def retrieve_forums():
-    data = request.get_json()
+    data = request.form
     courseID = data.get('courseID')
 
     if not courseID:
@@ -481,7 +481,7 @@ def retrieve_forums():
 
 @app.route('/forums/create', methods=['POST'])
 def create_forum():
-    data = request.get_json()
+    data = request.form
     courseID = data.get('courseID')
     topic = data.get('topic')
 
@@ -516,7 +516,7 @@ def create_forum():
 
 @app.route('/threads/retrieve', methods=['POST'])
 def retrieve_threads():
-    data = request.get_json()
+    data = request.form
     forumID = data.get('forumID')
 
     if not forumID:
@@ -580,7 +580,7 @@ def retrieve_threads():
 
 @app.route('/threads/create', methods=['POST'])
 def create_thread():
-    data = request.get_json()
+    data = request.form
     forumID = data.get('forumID')
     title = data.get('title')
     content = data.get('content')
@@ -621,7 +621,7 @@ def create_thread():
 
 @app.route('/threads/reply', methods=['POST'])
 def reply_to_thread():
-    data = request.get_json()
+    data = request.form
     parentThreadID = data.get('parentThreadID')
     content = data.get('content')
 
@@ -665,7 +665,7 @@ def reply_to_thread():
 
 @app.route('/sections/create', methods=['POST'])
 def create_section():
-    data = request.get_json()
+    data = request.form
     courseID = data.get('courseID')
     section_name = data.get('section_name')
 
@@ -718,7 +718,7 @@ def create_section():
 
 @app.route('/sections/items/add-assignment', methods=['POST'])
 def add_assignment():
-    data = request.get_json()
+    data = request.form
     sectionID = data.get('sectionID')
     assignmentName = data.get('assignmentName')
     maxPoints = data.get('maxPoints', 100.00)
@@ -779,7 +779,7 @@ def add_assignment():
 
 @app.route('/sections/items/add-slide', methods=['POST'])
 def add_lecture_slide():
-    data = request.get_json()
+    data = request.form
     sectionID = data.get('sectionID')
     slide_name = data.get('slide_name')
 
@@ -839,7 +839,7 @@ def add_lecture_slide():
 
 @app.route('/sections/items/add-link', methods=['POST'])
 def add_link():
-    data = request.get_json()
+    data = request.form
     sectionID = data.get('sectionID')
     link_title = data.get('link_title')
     url = data.get('url')
@@ -901,7 +901,7 @@ def add_link():
 
 @app.route('/sections/items/add-file', methods=['POST'])
 def add_file():
-    data = request.get_json()
+    data = request.form
     sectionID = data.get('sectionID')
     file_name = data.get('file_name')
     file_path = data.get('file_path')
@@ -964,7 +964,7 @@ def add_file():
 
 @app.route('/courses/content/retrieve', methods=['POST'])
 def retrieve_course_content():
-    data = request.get_json()
+    data = request.form
     courseID = data.get('courseID')
 
     if not courseID:
@@ -1128,7 +1128,7 @@ def retrieve_course_content():
 
 @app.route('/assignments/submit', methods=['POST'])
 def submit_assignment():
-    data = request.get_json()
+    data = request.form
     assignmentID = data.get('assignmentID')
     submissionContent = data.get('submissionContent')
     
@@ -1228,7 +1228,7 @@ def submit_assignment():
 
 @app.route('/assignments/grade', methods=['POST'])
 def grade_assignment():
-    data = request.get_json()
+    data = request.form
     submissionID = data.get('submissionID')
     grade = data.get('grade')
     
