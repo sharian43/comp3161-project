@@ -151,77 +151,56 @@ def register_account():
         return jsonify({'error': str(e)}), 500
 
 
-@app.route('/login', methods=['GET','POST'])
+@app.route('/login', methods=['POST'])
 def user_login():
-    #A login class to represent and validate our client-side form data.
-    form = forms.LoginForm()
-    print('lol')
+    data = request.get_json()
+    username = data.get('username')
+    userPassword = data.get('userPassword')
 
-    #Login and validate the user.
-    if form.validate_on_submit():
-        username = form.username.data
-        userPassword = form.password.data
+    if not all([username, userPassword]):
+        return jsonify({'error': 'Missing login credentials'}), 400
 
+    try:
 
+        cursor.execute("SELECT * FROM User WHERE username = %s", (username,))
+        user = cursor.fetchone()
 
-     #if not all([username, userPassword]):
-     #   return jsonify({'error': 'Missing login credentials'}), 400
-
-        try:
-
-            cursor.execute("SELECT * FROM User WHERE username = %s", (username,))
-            user = cursor.fetchone()
-
-            if not user or not check_password_hash(user['userPassword'], userPassword):
-                flash('Invalid credentials')
-                return jsonify({'error': 'Invalid credentials'}), 401
-            else:
-                userID = user['userID']
-
-                cursor.execute("SELECT * FROM Account WHERE userID = %s", (userID,))
-                account = cursor.fetchone()
-
-                accRole = account['accRole']
-
-                if accRole not in ['STUDENT', 'LECTURER', 'ADMIN']:
-                    flash('User MUST BE any of the following, an admin, a student or a lecturer')
-                    return jsonify({'error': 'Cannot login'}), 403
-                else:
-
-                    cursor.execute("INSERT INTO Login (userID) VALUES (%s)", (userID,))
-                    db.commit()
-                    
-                    session['userID'] = user['userID']
-                    session['accRole'] = account['accRole']
-                    
-                    print("Successful")
-                    return jsonify({'message': 'Login successful', 'Role': accRole}), 200, redirect(url_for('dashboard'))     
-                '''
-                 # Generate JWT token for authorization instead of using sessions
-                    token = jwt.encode({
-                        'userID': userID,
-                        'accRole': accRole,
-                        'exp': datetime.utcnow() + timedelta(hours=24)
-                    }, JWT_SECRET, algorithm="HS256")
-                    
-                    print("Successful")
-                    return jsonify({
-                        'message': 'Login successful',
-                        'role': accRole,
-                        'token': token,
-                    }), 200, redirect(url_for('dashboard')) 
-                '''
-        except Error as e:
-            return jsonify({'error': str(e)}), 500
+        if not user or not check_password_hash(user['userPassword'], userPassword):
+            return jsonify({'error': 'Invalid credentials'}), 401
         
-    return render_template('Login.html', form=form)  
+        userID = user['userID']
 
+        cursor.execute("SELECT * FROM Account WHERE userID = %s", (userID,))
+        account = cursor.fetchone()
 
+        accRole = account['accRole']
 
+        if accRole not in ['STUDENT', 'LECTURER', 'ADMIN']:
+            return jsonify({'error': 'Cannot login'}), 403
+
+        cursor.execute("INSERT INTO Login (userID) VALUES (%s)", (userID,))
+        db.commit()
+        
+        # Generate JWT token for authorization
+        token = jwt.encode({
+            'userID': userID,
+            'accRole': accRole,
+            'exp': datetime.utcnow() + timedelta(hours=24)
+        }, JWT_SECRET, algorithm="HS256")
+        
+        return jsonify({
+            'message': 'Login successful',
+            'role': accRole,
+            'token': token
+        }), 200
+
+    except Error as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/courses/create-course', methods=['POST'])
-def create_course():
-    data = request.form
+@jwt_auth_required
+def create_course(current_user):
+    data = request.get_json()
     course_name = data.get('course_name')
     course_code = data.get('course_code')
     lecturerID = data.get('lecturerID')
@@ -232,7 +211,7 @@ def create_course():
 
     try:
 
-        userID = session['userID']
+        userID = current_user['userID']
 
         cursor.execute("SELECT * FROM Account WHERE userID = %s", (userID,))
         account = cursor.fetchone()
@@ -264,6 +243,7 @@ def create_course():
 
     except Error as e:
         return jsonify({'error': str(e)}), 500
+    
 
 
 @app.route('/courses/retrieve-courses', methods=['GET'])
@@ -435,31 +415,9 @@ def create_calendar_event():
     except mysql.connector.Error as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/courses/<int:courseID>/forums', methods=['GET'])
-def get_forums(courseID):
-    try:
-        # Verify the course exists
-        cursor.execute("SELECT * FROM Course WHERE courseID = %s", (courseID,))
-        if not cursor.fetchone():
-            return jsonify({'error': 'Course not found'}), 404
-
-        # Retrieve all forums for the specified course
-        cursor.execute("""
-            SELECT f.forumID, f.topic, f.creator, u.username as creator_name
-            FROM DiscussionForum f
-            JOIN User u ON f.creator = u.userID
-            WHERE f.courseID = %s
-        """, (courseID,))
-        
-        forums = cursor.fetchall()
-        return jsonify({'forums': forums}), 200
-
-    except Error as e:
-        return jsonify({'error': str(e)}), 500
-
-
 @app.route('/api/courses/<int:courseID>/forums', methods=['POST'])
-def create_forum(courseID):
+@jwt_auth_required
+def create_forum(current_user, courseID):
     data = request.get_json()
     topic = data.get('topic')
 
@@ -467,10 +425,7 @@ def create_forum(courseID):
         return jsonify({'error': 'Missing required topic field'}), 400
 
     try:
-        if 'userID' not in session:
-            return jsonify({'error': 'User not logged in'}), 401
-        
-        userID = session['userID']
+        userID = current_user['userID']
 
         cursor.execute("SELECT * FROM Course WHERE courseID = %s", (courseID,))
         if not cursor.fetchone():
@@ -497,6 +452,7 @@ def create_forum(courseID):
 
     except Error as e:
         return jsonify({'error': str(e)}), 500
+
 
 
 @app.route('/api/forums/<int:forumID>/threads', methods=['GET'])
@@ -557,8 +513,10 @@ def get_threads(forumID):
         return jsonify({'error': str(e)}), 500
 
 
+
 @app.route('/api/forums/<int:forumID>/threads', methods=['POST'])
-def create_thread(forumID):
+@jwt_auth_required
+def create_thread(current_user, forumID):
     data = request.get_json()
     title = data.get('title')
     content = data.get('content')
@@ -567,10 +525,7 @@ def create_thread(forumID):
         return jsonify({'error': 'Missing required fields'}), 400
 
     try:
-        if 'userID' not in session:
-            return jsonify({'error': 'User not logged in'}), 401
-        
-        userID = session['userID']
+        userID = current_user['userID']
 
         cursor.execute("SELECT * FROM DiscussionForum WHERE forumID = %s", (forumID,))
         if not cursor.fetchone():
@@ -596,9 +551,9 @@ def create_thread(forumID):
         db.rollback()
         return jsonify({'error': str(e)}), 500
 
-
 @app.route('/api/threads/<int:parentThreadID>/replies', methods=['POST'])
-def reply_to_thread(parentThreadID):
+@jwt_auth_required
+def reply_to_thread(current_user, parentThreadID):
     data = request.get_json()
     content = data.get('content')
 
@@ -606,10 +561,7 @@ def reply_to_thread(parentThreadID):
         return jsonify({'error': 'Missing required content field'}), 400
 
     try:
-        if 'userID' not in session:
-            return jsonify({'error': 'User not logged in'}), 401
-        
-        userID = session['userID']
+        userID = current_user['userID']
 
         # Verify the parent thread exists
         cursor.execute("SELECT forumID FROM DiscussionThread WHERE threadID = %s", (parentThreadID,))
@@ -638,10 +590,11 @@ def reply_to_thread(parentThreadID):
     except Error as e:
         db.rollback()
         return jsonify({'error': str(e)}), 500
-
+    
 
 @app.route('/api/courses/<int:courseID>/sections', methods=['POST'])
-def create_section(courseID):
+@jwt_auth_required
+def create_section(current_user, courseID):
     data = request.get_json()
     section_name = data.get('section_name')
 
@@ -649,11 +602,8 @@ def create_section(courseID):
         return jsonify({'error': 'Missing required section_name field'}), 400
 
     try:
-        if 'userID' not in session:
-            return jsonify({'error': 'User not logged in'}), 401
-        
-        userID = session['userID']
-        accRole = session['accRole']
+        userID = current_user['userID']
+        accRole = current_user['accRole']
         
         # Check if user is a lecturer for this course
         cursor.execute("""
@@ -695,7 +645,8 @@ def create_section(courseID):
 
 
 @app.route('/api/sections/<int:sectionID>/assignments', methods=['POST'])
-def add_assignment(sectionID):
+@jwt_auth_required
+def add_assignment(current_user, sectionID):
     data = request.get_json()
     assignmentName = data.get('assignmentName')
     maxPoints = data.get('maxPoints', 100.00)
@@ -705,11 +656,8 @@ def add_assignment(sectionID):
         return jsonify({'error': 'Missing required assignmentName field'}), 400
 
     try:
-        if 'userID' not in session:
-            return jsonify({'error': 'User not logged in'}), 401
-        
-        userID = session['userID']
-        accRole = session['accRole']
+        userID = current_user['userID']
+        accRole = current_user['accRole']
         
         cursor.execute("""
             SELECT l.lecturerID
@@ -757,7 +705,8 @@ def add_assignment(sectionID):
 
 
 @app.route('/api/sections/<int:sectionID>/slides', methods=['POST'])
-def add_lecture_slide(sectionID):
+@jwt_auth_required
+def add_lecture_slide(current_user, sectionID):
     data = request.get_json()
     slide_name = data.get('slide_name')
 
@@ -765,11 +714,8 @@ def add_lecture_slide(sectionID):
         return jsonify({'error': 'Missing required slide_name field'}), 400
 
     try:
-        if 'userID' not in session:
-            return jsonify({'error': 'User not logged in'}), 401
-        
-        userID = session['userID']
-        accRole = session['accRole']
+        userID = current_user['userID']
+        accRole = current_user['accRole']
         
         cursor.execute("""
             SELECT l.lecturerID
@@ -817,7 +763,8 @@ def add_lecture_slide(sectionID):
 
 
 @app.route('/api/sections/<int:sectionID>/links', methods=['POST'])
-def add_link(sectionID):
+@jwt_auth_required
+def add_link(current_user, sectionID):
     data = request.get_json()
     link_title = data.get('link_title')
     url = data.get('url')
@@ -827,11 +774,8 @@ def add_link(sectionID):
         return jsonify({'error': 'Missing required fields'}), 400
 
     try:
-        if 'userID' not in session:
-            return jsonify({'error': 'User not logged in'}), 401
-        
-        userID = session['userID']
-        accRole = session['accRole']
+        userID = current_user['userID']
+        accRole = current_user['accRole']
         
         cursor.execute("""
             SELECT l.lecturerID
@@ -879,7 +823,8 @@ def add_link(sectionID):
 
 
 @app.route('/api/sections/<int:sectionID>/files', methods=['POST'])
-def add_file(sectionID):
+@jwt_auth_required
+def add_file(current_user, sectionID):
     data = request.get_json()
     file_name = data.get('file_name')
     file_path = data.get('file_path')
@@ -890,11 +835,8 @@ def add_file(sectionID):
         return jsonify({'error': 'Missing required fields'}), 400
 
     try:
-        if 'userID' not in session:
-            return jsonify({'error': 'User not logged in'}), 401
-        
-        userID = session['userID']
-        accRole = session['accRole']
+        userID = current_user['userID']
+        accRole = current_user['accRole']
         
         cursor.execute("""
             SELECT l.lecturerID
@@ -942,7 +884,8 @@ def add_file(sectionID):
 
 
 @app.route('/api/courses/<int:courseID>/content', methods=['GET'])
-def get_course_content(courseID):
+@jwt_auth_required
+def get_course_content(current_user, courseID):
     try:
         # Verify the course exists
         cursor.execute("SELECT * FROM Course WHERE courseID = %s", (courseID,))
@@ -950,13 +893,16 @@ def get_course_content(courseID):
             return jsonify({'error': 'Course not found'}), 404
 
         studentID = None
-        if 'userID' in session and session['accRole'] == 'STUDENT':
+        userID = current_user['userID']
+        accRole = current_user['accRole']
+        
+        if accRole == 'STUDENT':
             cursor.execute("""
                 SELECT s.studentID
                 FROM Student s
                 JOIN Account a ON s.accountID = a.accountID
                 WHERE a.userID = %s
-            """, (session['userID'],))
+            """, (userID,))
             student = cursor.fetchone()
             if student:
                 studentID = student['studentID']
@@ -1072,7 +1018,7 @@ def get_course_content(courseID):
                                 assignment_data['submitted'] = False
                         
                         # If the user is a lecturer, get submission stats
-                        elif 'accRole' in session and session['accRole'] == 'LECTURER':
+                        elif accRole == 'LECTURER':
                             cursor.execute("""
                                 SELECT COUNT(*) AS total_submissions,
                                        SUM(CASE WHEN grade IS NOT NULL THEN 1 ELSE 0 END) AS graded_submissions
@@ -1099,9 +1045,9 @@ def get_course_content(courseID):
         return jsonify({'error': str(e)}), 500
 
 
-
 @app.route('/api/assignments/<int:assignmentID>/submissions', methods=['POST'])
-def submit_assignment(assignmentID):
+@jwt_auth_required
+def submit_assignment(current_user, assignmentID):
     data = request.get_json()
     submissionContent = data.get('submissionContent')
     
@@ -1109,11 +1055,8 @@ def submit_assignment(assignmentID):
         return jsonify({'error': 'Missing required submissionContent field'}), 400
     
     try:
-        if 'userID' not in session:
-            return jsonify({'error': 'User not logged in'}), 401
-        
-        userID = session['userID']
-        accRole = session['accRole']
+        userID = current_user['userID']
+        accRole = current_user['accRole']
         
         # Only students can submit assignments
         if accRole != 'STUDENT':
@@ -1200,8 +1143,10 @@ def submit_assignment(assignmentID):
         return jsonify({'error': str(e)}), 500
 
 
+
 @app.route('/api/submissions/<int:submissionID>/grade', methods=['PUT'])
-def grade_assignment(submissionID):
+@jwt_auth_required
+def grade_assignment(current_user, submissionID):
     data = request.get_json()
     grade = data.get('grade')
     
@@ -1209,11 +1154,8 @@ def grade_assignment(submissionID):
         return jsonify({'error': 'Missing required grade field'}), 400
     
     try:
-        if 'userID' not in session:
-            return jsonify({'error': 'User not logged in'}), 401
-        
-        userID = session['userID']
-        accRole = session['accRole']
+        userID = current_user['userID']
+        accRole = current_user['accRole']
         
         if accRole not in ['LECTURER', 'ADMIN']:
             return jsonify({'error': 'Only lecturers and admins can grade assignments'}), 403
@@ -1318,14 +1260,12 @@ def grade_assignment(submissionID):
         db.rollback()
         return jsonify({'error': str(e)}), 500
 
+
+
 # Gets all courses that have 50 or more students
 @app.route('/api/reports/courses/high-enrollment', methods=['GET'])
 def get_high_enrollment_courses():
     try:
-        # Only admins should be able to access these reports
-        if 'accRole' not in session or session['accRole'] != 'ADMIN':
-            return jsonify({'error': 'Access denied. Only admins can view reports.'}), 403
-            
         cursor.execute("""
             SELECT c.courseID, c.course_name, c.course_code, COUNT(e.studentID) AS student_count
             FROM Course c
@@ -1340,14 +1280,10 @@ def get_high_enrollment_courses():
     except Error as e:
         return jsonify({'error': str(e)}), 500
 
-# Gets all students that do 5 or more courses 
+# Gets all students that do 5 or more courses
 @app.route('/api/reports/students/multiple-courses', methods=['GET'])
 def get_students_with_multiple_courses():
     try:
-        # Only admins should be able to access these reports
-        if 'accRole' not in session or session['accRole'] != 'ADMIN':
-            return jsonify({'error': 'Access denied. Only admins can view reports.'}), 403
-            
         cursor.execute("""
             SELECT s.studentID, a.firstName, a.lastName, COUNT(e.courseID) AS course_count
             FROM Student s
@@ -1363,14 +1299,10 @@ def get_students_with_multiple_courses():
     except Error as e:
         return jsonify({'error': str(e)}), 500
 
-#Gets all lecturers that teach 3 or more courses
+# Gets all lecturers that teach 3 or more courses
 @app.route('/api/reports/lecturers/high-teaching-load', methods=['GET'])
 def get_lecturers_with_high_teaching_load():
     try:
-        # Only admins should be able to access these reports
-        if 'accRole' not in session or session['accRole'] != 'ADMIN':
-            return jsonify({'error': 'Access denied. Only admins can view reports.'}), 403
-            
         cursor.execute("""
             SELECT l.lecturerID, a.firstName, a.lastName, COUNT(c.courseID) AS course_count
             FROM Lecturer l
@@ -1386,14 +1318,10 @@ def get_lecturers_with_high_teaching_load():
     except Error as e:
         return jsonify({'error': str(e)}), 500
 
-# "Gets the 10 most enrolled courses
+# Gets the 10 most enrolled courses
 @app.route('/api/reports/courses/top-enrolled', methods=['GET'])
 def get_top_enrolled_courses():
     try:
-        # Only admins should be able to access these reports
-        if 'accRole' not in session or session['accRole'] != 'ADMIN':
-            return jsonify({'error': 'Access denied. Only admins can view reports.'}), 403
-            
         cursor.execute("""
             SELECT c.courseID, c.course_name, c.course_code, COUNT(e.studentID) AS enrollment_count
             FROM Course c
@@ -1413,10 +1341,6 @@ def get_top_enrolled_courses():
 @app.route('/api/reports/students/top-performers', methods=['GET'])
 def get_top_performing_students():
     try:
-        # Only admins should be able to access these reports
-        if 'accRole' not in session or session['accRole'] != 'ADMIN':
-            return jsonify({'error': 'Access denied. Only admins can view reports.'}), 403
-            
         cursor.execute("""
             SELECT s.studentID, a.firstName, a.lastName, s.department, s.gpa
             FROM Student s
@@ -1430,9 +1354,6 @@ def get_top_performing_students():
 
     except Error as e:
         return jsonify({'error': str(e)}), 500
-
-
-
 
 if __name__ == '__main__':
     app.run(debug=True)
