@@ -119,54 +119,6 @@ def register_account():
         return jsonify({'error': str(e)}), 500
 
 
-@app.route('/register/account/admin', methods=['POST'])
-def register_admin_account():
-
-    data = request.form
-    username = data.get('username')
-    firstName = data.get('firstName')
-    lastName = data.get('lastName')
-    acc_contact_info = data.get('acc_contact_info')
-    accPassword = data.get('accPassword')
-
-    if not all([username, firstName, lastName, acc_contact_info, accPassword]):
-        return jsonify({'error': 'Missing fields'}), 400
-
-    hashed_password = generate_password_hash(accPassword)
-
-    accRole = 'ADMIN'
-
-    try:
-        cursor.execute("SELECT userID FROM User WHERE username = %s", (username,))
-        user = cursor.fetchone()
-
-        if not user:
-            return jsonify({'error': 'User not found'}), 404
-        userID = user['userID']
-        
-        cursor.execute("SELECT * FROM Account WHERE userID = %s", (userID,))
-        if cursor.fetchone():
-            return jsonify({'error': 'Account already exists'}), 409
-
-        cursor.execute("INSERT INTO Account (userID, firstName, lastName, acc_contact_info, accRole, accPassword) VALUES (%s, %s, %s, %s, %s, %s)", 
-        (userID, firstName, lastName, acc_contact_info, accRole, hashed_password,))
-
-        cursor.execute("SELECT LAST_INSERT_ID()")
-        accountID = cursor.fetchone()['LAST_INSERT_ID()']
-
-        cursor.execute(
-            "INSERT INTO Admin (accountID, firstName, lastName) VALUES (%s, %s, %s)",
-            (accountID, firstName, lastName)
-        )
-        db.commit()
-
-        return jsonify({'message': 'Account created successfully'}), 201
-
-    except Error as e:
-        return jsonify({'error': str(e)}), 500
-
-
-
 @app.route('/login', methods=['GET','POST'])
 def user_login():
     #A login class to represent and validate our client-side form data.
