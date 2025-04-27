@@ -12,14 +12,14 @@ load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY')
 
-db=mysql.connector.connect(user='dbms', password='finalproject', host='127.0.0.1',database='cms')
-#db = mysql.connector.connect(host='localhost', user=os.getenv('DB_User'), password= os.getenv('DB_Password'), database='cms')
+#db=mysql.connector.connect(user='dbms', password='finalproject', host='127.0.0.1',database='cms')
+db = mysql.connector.connect(host='localhost', user=os.getenv('DB_User'), password= os.getenv('DB_Password'), database='cms')
 cursor = db.cursor(dictionary=True)
 
 
 @app.route('/register/user', methods=['POST'])
 def register_user():
-    data = request.form
+    data = request.get_json()
     username = data.get('username')
     userPassword = data.get('userPassword')
 
@@ -44,107 +44,79 @@ def register_user():
     except Error as e:
         return jsonify({'error': str(e)}), 500
 
-
-@app.route('/register/account/student', methods=['POST'])
-def register_student_account():
-
-    data = request.form
+@app.route('/register/account', methods=['POST'])
+def register_account():
+    data = request.get_json()
     username = data.get('username')
     firstName = data.get('firstName')
     lastName = data.get('lastName')
     acc_contact_info = data.get('acc_contact_info')
-    department = data.get('department')
     accPassword = data.get('accPassword')
+    accRole = data.get('accRole')  # NEW: student / lecturer / admin
 
-    if not all([username, firstName, lastName, acc_contact_info, department, accPassword]):
+    if not all([username, firstName, lastName, acc_contact_info, accPassword, accRole]):
         return jsonify({'error': 'Missing fields'}), 400
 
     hashed_password = generate_password_hash(accPassword)
 
-    accRole = 'STUDENT'
-
     try:
+        #Check if user exists
         cursor.execute("SELECT userID FROM User WHERE username = %s", (username,))
         user = cursor.fetchone()
 
         if not user:
             return jsonify({'error': 'User not found'}), 404
+
         userID = user['userID']
-        
+
         cursor.execute("SELECT * FROM Account WHERE userID = %s", (userID,))
         if cursor.fetchone():
             return jsonify({'error': 'Account already exists'}), 409
 
-        cursor.execute("INSERT INTO Account (userID, firstName, lastName, acc_contact_info, accRole, accPassword) VALUES (%s, %s, %s, %s, %s, %s)", 
-        (userID, firstName, lastName, acc_contact_info, accRole, hashed_password,))
+        #Insert into Account table
+        cursor.execute("""
+            INSERT INTO Account (userID, firstName, lastName, acc_contact_info, accRole, accPassword)
+            VALUES (%s, %s, %s, %s, %s, %s)
+        """, (userID, firstName, lastName, acc_contact_info, accRole.upper(), hashed_password))
 
-        cursor.execute("SELECT LAST_INSERT_ID()")
-        accountID = cursor.fetchone()['LAST_INSERT_ID()']
+        cursor.execute("SELECT LAST_INSERT_ID() AS id")
+        accountID = cursor.fetchone()['id']
 
-        gpa = 0.00
-        cursor.execute(
-            "INSERT INTO Student (accountID, firstName, lastName, department, gpa) VALUES (%s, %s, %s, %s, %s)",
-            (accountID, firstName, lastName, department, gpa)
-        )
+        #Insert into specific role table
+        if accRole.upper() == 'STUDENT':
+            department = data.get('department')
+            if not department:
+                return jsonify({'error': 'Missing department for student'}), 400
+            gpa = 0.00  # Default GPA
+            cursor.execute("""
+                INSERT INTO Student (accountID, firstName, lastName, department, gpa)
+                VALUES (%s, %s, %s, %s, %s)
+            """, (accountID, firstName, lastName, department, gpa))
 
-        db.commit()
+        elif accRole.upper() == 'LECTURER':
+            department = data.get('department')
+            if not department:
+                return jsonify({'error': 'Missing department for lecturer'}), 400
+            schedule = None #initial schedule
+            cursor.execute("""
+                INSERT INTO Lecturer (accountID, firstName, lastName, department, schedule)
+                VALUES (%s, %s, %s, %s, %s)
+            """, (accountID, firstName, lastName, department, schedule))
 
-        return jsonify({'message': 'Account created successfully'}), 201
+        elif accRole.upper() == 'ADMIN':
+            cursor.execute("""
+                INSERT INTO Admin (accountID, firstName, lastName)
+                VALUES (%s, %s, %s)
+            """, (accountID, firstName, lastName))
 
-    except Error as e:
-        return jsonify({'error': str(e)}), 500
-
-
-
-@app.route('/register/account/lecturer', methods=['POST'])
-def register_lecturer_account():
-
-    data = request.form
-    username = data.get('username')
-    firstName = data.get('firstName')
-    lastName = data.get('lastName')
-    acc_contact_info = data.get('acc_contact_info')
-    department = data.get('department')
-    accPassword = data.get('accPassword')
-
-    if not all([username, firstName, lastName, acc_contact_info, department, accPassword]):
-        return jsonify({'error': 'Missing fields'}), 400
-
-    hashed_password = generate_password_hash(accPassword)
-
-    accRole = 'LECTURER'
-
-    try:
-        cursor.execute("SELECT userID FROM User WHERE username = %s", (username,))
-        user = cursor.fetchone()
-
-        if not user:
-            return jsonify({'error': 'User not found'}), 404
-        userID = user['userID']
-        
-        cursor.execute("SELECT * FROM Account WHERE userID = %s", (userID,))
-        if cursor.fetchone():
-            return jsonify({'error': 'Account already exists'}), 409
-
-        cursor.execute("INSERT INTO Account (userID, firstName, lastName, acc_contact_info, accRole, accPassword) VALUES (%s, %s, %s, %s, %s, %s)", 
-        (userID, firstName, lastName, acc_contact_info, accRole, hashed_password,))
-
-        cursor.execute("SELECT LAST_INSERT_ID()")
-        accountID = cursor.fetchone()['LAST_INSERT_ID()']
-
-        schedule = None
-        cursor.execute(
-            "INSERT INTO Lecturer (accountID, firstName, lastName, department, schedule) VALUES (%s, %s, %s, %s, %s)",
-            (accountID, firstName, lastName, department, schedule)
-        )
+        else:
+            return jsonify({'error': 'Invalid account role'}), 400
 
         db.commit()
+        return jsonify({'message': f'{accRole.capitalize()} account created successfully'}), 201
 
-        return jsonify({'message': 'Account created successfully'}), 201
-
-    except Error as e:
+    except mysql.connector.Error as e:
         return jsonify({'error': str(e)}), 500
-
 
 
 @app.route('/register/account/admin', methods=['POST'])
@@ -367,13 +339,14 @@ def register_student_to_course():
         return jsonify({'error': str(e)}), 500
 
    
-@app.route('/courses/members', methods=['POST'])
-def get_course_members():
-    data = request.form
-    courseID = data.get('courseID')
+@app.route('/courses/<int:courseID>/members', methods=['GET'])
+def get_course_members(courseID):
 
-    if not courseID:
-        return jsonify({'error': 'Missing courseID'}), 400
+    cursor.execute("SELECT * FROM `Course` WHERE courseID = %s", (courseID,))
+    course = cursor.fetchone()
+
+    if not course:
+            return jsonify({'error': 'Course not found'}), 404
 
     try:
 
@@ -403,12 +376,11 @@ def get_course_members():
         return jsonify({'error': str(e)}), 500
 
 
-@app.route('/courses/calendar-events/retrieve', methods=['POST'])
+@app.route('/courses/calendar-events', methods=['GET'])
 def retrieve_calendar_events():
-    data = request.form
-    courseID = data.get('courseID')
-    studentID = data.get('studentID')
-    event_date = data.get('event_date')  # format: YYYY-MM-DD
+    courseID = request.args.get('courseID')
+    studentID = request.args.get('studentID')
+    event_date = request.args.get('event_date')  # format: YYYY-MM-DD
 
     try:
         # Case 1: Events for a course
