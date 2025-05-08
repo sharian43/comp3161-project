@@ -37,8 +37,8 @@ def parse_students(sql_file_path):
     return students
 
 # Parse the courses and students from the provided SQL files
-courses = parse_courses("cms_courses.sql")
-students = parse_students("cms_students.sql")
+courses = parse_courses("cms_course1.sql")
+students = parse_students("cms_student1.sql")
 
 NUM_STUDENTS = len(students)
 NUM_LECTURERS = 100  

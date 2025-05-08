@@ -189,3 +189,4 @@ CREATE TABLE Link(
     description TEXT,
     FOREIGN KEY (itemID) REFERENCES SectionItem(itemID)
 );
+
