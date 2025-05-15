@@ -198,3 +198,13 @@ INSERT INTO Course (courseID, course_name, course_code, lecturerID, created_by) 
 INSERT INTO Course (courseID, course_name, course_code, lecturerID, created_by) VALUES (5369, 'Fundamentals of Psychology', 'ECON307', 7090, 3537);
 INSERT INTO Course (courseID, course_name, course_code, lecturerID, created_by) VALUES (1294, 'Applied Psychology', 'HIST159', 7068, 3882);
 INSERT INTO Course (courseID, course_name, course_code, lecturerID, created_by) VALUES (1688, 'Intermediate Sociology', 'HIST665', 7047, 3565);
+INSERT INTO Course (courseID, course_name, course_code, lecturerID, created_by) VALUES (6001, 'Intro to Forensic Psychology', 'PSYC6001', 7016, 4253);
+INSERT INTO Course (courseID, course_name, course_code, lecturerID, created_by) VALUES (6002, 'Applied Journalism', 'JOUR6002', 7028, 3882);
+INSERT INTO Course (courseID, course_name, course_code, lecturerID, created_by) VALUES (6003, 'Bioethics and Society', 'PHIL6003', 7032, 3544);
+INSERT INTO Course (courseID, course_name, course_code, lecturerID, created_by) VALUES (6004, 'Digital Media Culture', 'COMM6004', 7033, 4291);
+INSERT INTO Course (courseID, course_name, course_code, lecturerID, created_by) VALUES (6005, 'Environmental Statistics', 'STAT6005', 7037, 3851);
+INSERT INTO Course (courseID, course_name, course_code, lecturerID, created_by) VALUES (6006, 'Oceanic Biology', 'BIOL6006', 7048, 4367);
+INSERT INTO Course (courseID, course_name, course_code, lecturerID, created_by) VALUES (6007, 'Sociology of Youth', 'SOCI6007', 7052, 3714);
+INSERT INTO Course (courseID, course_name, course_code, lecturerID, created_by) VALUES (6008, 'Advanced Accounting', 'ACCT6008', 7071, 3544);
+INSERT INTO Course (courseID, course_name, course_code, lecturerID, created_by) VALUES (6009, 'Machine Learning Ethics', 'COMP6009', 7082, 3930);
+INSERT INTO Course (courseID, course_name, course_code, lecturerID, created_by) VALUES (6010, 'Cognitive Psychology', 'PSYC6010', 7083, 4102);
