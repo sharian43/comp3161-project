@@ -8,15 +8,20 @@ import forms
 from functools import wraps
 import jwt
 from datetime import datetime, timedelta
+from flask_cors import CORS
+import random
 
 load_dotenv()
 
 
+
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY')
+cors = CORS(app, origins='http://localhost:3000', supports_credentials=True)
+ 
 
-#db=mysql.connector.connect(user='dbms', password='finalproject', host='127.0.0.1',database='cms')
-db = mysql.connector.connect(host='localhost', user=os.getenv('DB_User'), password= os.getenv('DB_Password'), database='cms')
+db=mysql.connector.connect(user='dbms', password='finalproject', host='127.0.0.1',database='cms')
+#db = mysql.connector.connect(host='localhost', user=os.getenv('DB_User'), password= os.getenv('DB_Password'), database='cms')
 cursor = db.cursor(dictionary=True)
 
 JWT_SECRET = os.getenv('secret_key', 'secret123')
@@ -86,6 +91,8 @@ def register_account():
     accPassword = data.get('accPassword')
     accRole = data.get('accRole')  # NEW: student / lecturer / admin
 
+    
+
     if not all([username, firstName, lastName, acc_contact_info, accPassword, accRole]):
         return jsonify({'error': 'Missing fields'}), 400
 
@@ -96,20 +103,24 @@ def register_account():
         cursor.execute("SELECT userID FROM User WHERE username = %s", (username,))
         user = cursor.fetchone()
 
-        if not user:
-            return jsonify({'error': 'User not found'}), 404
+        if user:
+            return jsonify({'error': 'User exists'}), 404
 
-        userID = user['userID']
-
-        cursor.execute("SELECT * FROM Account WHERE userID = %s", (userID,))
-        if cursor.fetchone():
-            return jsonify({'error': 'Account already exists'}), 409
-
+        userID = random.randint(1000000,10000000)
+      
+        cursor.execute("""
+            INSERT INTO User (userID, username, userPassword)
+            VALUES (%s, %s, %s)
+        """, (userID, username, hashed_password))
+        # if cursor.fetchone():
+        #     return jsonify({'error': 'Account already exists'}), 409
+     
         #Insert into Account table
         cursor.execute("""
             INSERT INTO Account (userID, firstName, lastName, acc_contact_info, accRole, accPassword)
             VALUES (%s, %s, %s, %s, %s, %s)
         """, (userID, firstName, lastName, acc_contact_info, accRole.upper(), hashed_password))
+        
 
         cursor.execute("SELECT LAST_INSERT_ID() AS id")
         accountID = cursor.fetchone()['id']
@@ -148,6 +159,7 @@ def register_account():
         return jsonify({'message': f'{accRole.capitalize()} account created successfully'}), 201
 
     except mysql.connector.Error as e:
+        print(e)
         return jsonify({'error': str(e)}), 500
 
 
@@ -180,6 +192,7 @@ def user_login():
 
         cursor.execute("INSERT INTO Login (userID) VALUES (%s)", (userID,))
         db.commit()
+        
         
         # Generate JWT token for authorization
         token = jwt.encode({
@@ -245,7 +258,7 @@ def create_course(current_user):
         return jsonify({'error': str(e)}), 500
     
 
-
+@jwt_auth_required
 @app.route('/courses/retrieve-courses', methods=['GET'])
 def retrieve_courses():
     data = request.form
@@ -286,7 +299,7 @@ def retrieve_courses():
         return jsonify({'error': str(e)}), 500
 
 
-
+@jwt_auth_required
 @app.route('/courses/register', methods=['POST'])
 def register_student_to_course():
     data = request.form
@@ -318,7 +331,7 @@ def register_student_to_course():
     except Error as e:
         return jsonify({'error': str(e)}), 500
 
-   
+@jwt_auth_required   
 @app.route('/courses/<int:courseID>/members', methods=['GET'])
 def get_course_members(courseID):
 
@@ -355,14 +368,32 @@ def get_course_members(courseID):
     except Error as e:
         return jsonify({'error': str(e)}), 500
 
-
+@jwt_auth_required
 @app.route('/courses/calendar-events', methods=['GET'])
 def retrieve_calendar_events():
     courseID = request.args.get('courseID')
-    studentID = request.args.get('studentID')
     event_date = request.args.get('event_date')  # format: YYYY-MM-DD
+    studentID = ''
+
+    auth_header = request.headers.get('Authorization')
+
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return jsonify({'error': 'Missing or invalid Authorization header'}), 401
+
+    token = auth_header.split(' ')[1]
 
     try:
+      
+        decoded = jwt.decode(token, JWT_SECRET, algorithms=["HS256"])
+
+        user_id = decoded.get('userID')
+        acc_role = decoded.get('accRole')
+        if acc_role == 'student':
+            cursor.execute("""SELECT accountID FROM Account WHERE userID= %s""", (user_id),)
+            accountID = cursor.fetchone()
+            cursor.execute("""SELECT studentID FROM Student WHERE accountID = %s""", (accountID))
+            studentID= cursor.fetchone()
+
         # Case 1: Events for a course
         if courseID and not studentID:
             cursor.execute("""
@@ -380,13 +411,22 @@ def retrieve_calendar_events():
                 WHERE e.studentID = %s AND ce.event_date = %s
             """, (studentID, event_date))
             events = cursor.fetchall()
-            return jsonify({'calendarEvents': events}), 200
+            return jsonify({'calendarEvents': events}), 200, jsonify({
+            'message': 'Token decoded successfully',
+            'userID': user_id,
+            'accRole': acc_role
+        })
         return jsonify({'error': 'Invalid or missing parameters'}), 400
+        
 
     except Error as e:
         return jsonify({'error': str(e)}), 500
+    except jwt.ExpiredSignatureError:
+        return jsonify({'error': 'Token has expired'}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({'error': 'Invalid token'}), 401
 
-
+@jwt_auth_required
 @app.route('/courses/calendar-events/create', methods=['POST'])
 def create_calendar_event():
     data = request.form
@@ -454,7 +494,7 @@ def create_forum(current_user, courseID):
         return jsonify({'error': str(e)}), 500
 
 
-
+@jwt_auth_required
 @app.route('/api/forums/<int:forumID>/threads', methods=['GET'])
 def get_threads(forumID):
     try:
